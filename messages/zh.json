@@ -1,0 +1,19 @@
+{
+  "VideoCompressor": {
+    "title": "影片壓縮工具",
+    "recommendScreenRecorder": "推薦螢幕錄製工具",
+    "poweredByFFmpeg": "由 FFmpeg 提供技術支援",
+    "maxFileSizeWarning": "最大檔案大小",
+    "maxFileSizeDescription": "最大檔案大小為 1000MB",
+    "compressVideo": "壓縮影片",
+    "compressing": "壓縮中...",
+    "compressingProgress": "壓縮進度: {progress}%",
+    "compressionResults": "壓縮結果",
+    "originalSize": "原始大小: {size} MB",
+    "compressedSize": "壓縮後大小: {size} MB",
+    "compressionRatio": "壓縮率: {power}%",
+    "downloadCompressedVideo": "下載壓縮後的影片",
+    "compressedVideo": "壓縮影片預覽",
+    "videoNotSupported": "您的瀏覽器不支援影片播放。"
+  }
+} 

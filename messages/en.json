@@ -1,0 +1,19 @@
+{
+  "VideoCompressor": {
+    "title": "Video Compression Tool",
+    "recommendScreenRecorder": "Recommended Screen Recorder",
+    "poweredByFFmpeg": "Powered by FFmpeg",
+    "maxFileSizeWarning": "Maximum File Size",
+    "maxFileSizeDescription": "The maximum file size is 1000MB",
+    "compressVideo": "Compress Video",
+    "compressing": "Compressing...",
+    "compressingProgress": "Compressing: {progress}%",
+    "compressionResults": "Compression Results",
+    "originalSize": "Original Size: {size} MB",
+    "compressedSize": "Compressed Size: {size} MB",
+    "compressionRatio": "Compression Ratio: {power}%",
+    "downloadCompressedVideo": "Download Compressed Video",
+    "compressedVideo": "Compressed Video Preview",
+    "videoNotSupported": "Your browser does not support the video tag."
+  }
+} 

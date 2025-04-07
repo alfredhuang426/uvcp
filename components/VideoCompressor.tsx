@@ -4,7 +4,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { useTranslations } from 'next-intl';
 import React, { useEffect, useRef, useState } from 'react';
-import { Dropzone } from './Drapzone';
+import Dropzone from './Dropzone';
 
 const MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1000MB
 
@@ -22,71 +22,108 @@ const VideoCompressor: React.FC = () => {
   } | null>(null);
   const [logMessages, setLogMessages] = useState<string[]>([]);
   const [showLogs, setShowLogs] = useState<boolean>(false);
-  const ffmpegRef = useRef(new FFmpeg());
+  const [loaded, setLoaded] = useState(false);
+  const ffmpegRef = useRef<FFmpeg>();
 
   useEffect(() => {
-    load();
+    if (typeof window !== 'undefined' && !ffmpegRef.current) {
+      ffmpegRef.current = new FFmpeg();
+      load();
+    }
+    return () => {
+      // Cleanup URLs when component unmounts
+      if (outputVideo) {
+        URL.revokeObjectURL(outputVideo);
+      }
+    };
   }, []);
 
   const load = async () => {
-    const baseURL = "https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm";
+    if (!ffmpegRef.current) return;
+    
     const ffmpegInstance = ffmpegRef.current;
-    ffmpegInstance.on('progress', ({ progress }) => {
-      setProgress(Math.round(progress * 100));
-    });
-    ffmpegInstance.on("log", ({ message }) => {
-      setLogMessages(prev => [...prev, message]);
-    });
+
     try {
-      await ffmpegInstance.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
+      ffmpegInstance.on('progress', ({ progress }) => {
+        setProgress(Math.round(progress * 100));
       });
+      
+      ffmpegInstance.on("log", ({ message }) => {
+        setLogMessages(prev => [...prev, message]);
+      });
+
+      // Load FFmpeg using the built-in loading mechanism
+      await ffmpegInstance.load();
+
+      setLoaded(true);
+      setError(null);
     } catch (error) {
-      throw error;
+      console.error('Error loading FFmpeg:', error);
+      setError('Failed to load FFmpeg. Please refresh the page and try again.');
+      setLoaded(false);
     }
   };
 
   const compress = async () => {
+    if (!loaded) {
+      setError('FFmpeg is not loaded. Please wait or refresh the page.');
+      return;
+    }
+
     const ffmpeg = ffmpegRef.current;
-    if (!ffmpegRef.current || !inputVideo) return;
+    if (!ffmpeg || !inputVideo) return;
 
     setCompressing(true);
+    setError(null);
     setLogMessages([]);
     const inputFileName = 'input.mp4';
     const outputFileName = 'output.mp4';
 
-    await ffmpeg.writeFile(inputFileName, await fetchFile(inputVideo));
+    try {
+      await ffmpeg.writeFile(inputFileName, await fetchFile(inputVideo));
 
-    await ffmpeg.exec([
-      '-i', inputFileName,
-      '-c:v', 'libx264',
-      '-tag:v', 'avc1',
-      '-movflags', 'faststart',
-      '-crf', '30',
-      '-preset', 'superfast',
-      '-threads', '4',
-      '-progress', '-',
-      '-v', '',
-      '-y',
-      outputFileName
-    ]);
+      await ffmpeg.exec([
+        '-i', inputFileName,
+        '-c:v', 'libx264',
+        '-tag:v', 'avc1',
+        '-movflags', 'faststart',
+        '-crf', '30',
+        '-preset', 'superfast',
+        '-threads', '4',
+        '-progress', '-',
+        '-v', '',
+        '-y',
+        outputFileName
+      ]);
 
-    const data = await ffmpeg.readFile(outputFileName);
-    const url = URL.createObjectURL(new Blob([data], { type: 'video/mp4' }));
-    setOutputVideo(url);
-    setCompressing(false);
+      const data = await ffmpeg.readFile(outputFileName);
+      if (!(data instanceof Uint8Array)) {
+        throw new Error('Unexpected data type from FFmpeg');
+      }
 
-    // Calculate compression stats
-    const originalSize = inputVideo.size;
-    const compressedSize = data.byteLength;
-    const compressionRatio = ((originalSize - compressedSize) / originalSize) * 100;
-    setCompressionStats({
-      originalSize,
-      compressedSize,
-      compressionRatio
-    });
+      // Cleanup previous URL if exists
+      if (outputVideo) {
+        URL.revokeObjectURL(outputVideo);
+      }
+
+      const url = URL.createObjectURL(new Blob([data], { type: 'video/mp4' }));
+      setOutputVideo(url);
+
+      // Calculate compression stats
+      const originalSize = inputVideo.size;
+      const compressedSize = data.byteLength;
+      const compressionRatio = ((originalSize - compressedSize) / originalSize) * 100;
+      setCompressionStats({
+        originalSize,
+        compressedSize,
+        compressionRatio
+      });
+    } catch (error) {
+      console.error('Error compressing video:', error);
+      setError('Failed to compress video. Please try again.');
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const handleFileChange = (file: File) => {
