@@ -1,4 +1,5 @@
 const withNextIntl = require('next-intl/plugin')();
+const withHttps = require('next-https');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -16,20 +17,12 @@ const nextConfig = {
         source: '/:path*',
         headers: [
           {
-            key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp',
-          },
-          {
             key: 'Cross-Origin-Opener-Policy',
             value: 'same-origin',
           },
           {
-            key: 'Cross-Origin-Resource-Policy',
-            value: 'cross-origin',
-          },
-          {
-            key: 'Access-Control-Allow-Origin',
-            value: '*',
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'require-corp',
           },
         ],
       },
@@ -40,4 +33,10 @@ const nextConfig = {
   },
 };
 
-module.exports = withNextIntl(nextConfig); 
+module.exports = withNextIntl(withHttps({
+  ...nextConfig,
+  https: {
+    key: './tool.myweb.com-key.pem',
+    cert: './tool.myweb.com.pem',
+  },
+})); 
