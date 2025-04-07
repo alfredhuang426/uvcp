@@ -118,6 +118,18 @@ const VideoCompressor: React.FC = () => {
         compressedSize,
         compressionRatio
       });
+
+      // Send compressed video data to parent window
+      window.parent.postMessage({
+        type: 'VIDEO_COMPRESSED',
+        blob: new Blob([data], { type: 'video/mp4' }),
+        filename: inputVideo.name,
+        stats: {
+          originalSize,
+          compressedSize,
+          compressionRatio
+        }
+      }, '*');
     } catch (error) {
       console.error('Error compressing video:', error);
       setError('Failed to compress video. Please try again.');
