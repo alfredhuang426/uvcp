@@ -122,7 +122,7 @@ const VideoCompressor: React.FC = () => {
       // Send compressed video data to parent window
       window.parent.postMessage({
         type: 'VIDEO_COMPRESSED',
-        blob: new Blob([data], { type: 'video/mp4' }),
+        file: new File([data], 'compressed-video.mp4', { type: 'video/mp4' }),
         filename: inputVideo.name,
         stats: {
           originalSize,
