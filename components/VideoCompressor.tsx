@@ -161,9 +161,6 @@ const VideoCompressor: React.FC = () => {
 
   return (
     <div className="mx-auto py-8 md:py-12 max-w-3xl min-w-[280px] sm:min-w-[480px] md:min-w-[640px] lg:min-w-[768px] px-4 sm:px-6 lg:px-8">
-      <div className='text-black'>
-        Test
-      </div>
       <div className="mb-6">
         <Dropzone
           onChange={handleFileChange}
