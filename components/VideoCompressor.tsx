@@ -161,21 +161,6 @@ const VideoCompressor: React.FC = () => {
 
   return (
     <div className="mx-auto py-8 md:py-12 max-w-3xl min-w-[280px] sm:min-w-[480px] md:min-w-[640px] lg:min-w-[768px] px-4 sm:px-6 lg:px-8">
-      <h2 className="text-3xl font-bold mb-8 text-center text-gray-800 dark:text-gray-200">{t('title')}</h2>
-      <div className="mb-6 text-center">
-        <Link href="/" className="inline-block px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-lg shadow-md hover:from-blue-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105">
-          {t('recommendScreenRecorder')}
-        </Link>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          <a href="https://ffmpeg.org/" target="_blank" rel="noopener noreferrer" className="hover:underline">
-            {t('poweredByFFmpeg')}
-          </a>
-        </p>
-      </div>
-      <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900 dark:border-yellow-600 dark:text-yellow-200">
-        <p className="font-bold">{t('maxFileSizeWarning')}</p>
-        <p>{t('maxFileSizeDescription')}</p>
-      </div>
       <div className="mb-6">
         <Dropzone
           onChange={handleFileChange}
