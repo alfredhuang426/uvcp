@@ -53,7 +53,7 @@ const Dropzone: React.FC<DropzoneProps> = ({ onChange, className = '', fileExten
             : 'Drag and drop a video file here, or click to select'}
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-          Supported format: {fileExtension.toUpperCase()}
+          Supported format : {fileExtension.toUpperCase()}
         </p>
       </div>
     </div>
