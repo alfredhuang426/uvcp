@@ -17,7 +17,8 @@ const Dropzone: React.FC<DropzoneProps> = ({ onChange, className = '', fileExten
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'video/*': [`.${fileExtension}`]
+      'video/*': ['.mp4'],
+      'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.gif']
     },
     maxFiles: 1
   });
@@ -34,7 +35,7 @@ const Dropzone: React.FC<DropzoneProps> = ({ onChange, className = '', fileExten
       <input {...getInputProps()} />
       <div className="flex flex-col items-center justify-center">
         <svg
-          className="w-12 h-12 mb-3 text-gray-400 dark:text-gray-500"
+          className="w-12 h-12 text-gray-400 dark:text-gray-500"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -47,14 +48,14 @@ const Dropzone: React.FC<DropzoneProps> = ({ onChange, className = '', fileExten
             d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
           />
         </svg>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        {/* <p className="text-sm text-gray-600 dark:text-gray-400">
           {isDragActive
             ? 'Drop the video file here'
             : 'Drag and drop a video file here, or click to select'}
-        </p>
-        <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-          Supported format : {fileExtension.toUpperCase()}
-        </p>
+        </p> */}
+        {/* <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+          Supported format: {fileExtension.toUpperCase()}
+        </p> */}
       </div>
     </div>
   );

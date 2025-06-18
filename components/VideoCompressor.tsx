@@ -1,14 +1,21 @@
 'use client'
-import { Link } from '@/i18n/routing';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { fetchFile } from '@ffmpeg/util';
 import { useTranslations } from 'next-intl';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, Suspense } from 'react';
 import Dropzone from './Dropzone';
+import { useSearchParams } from 'next/navigation';
 
 const MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1000MB
 
-const VideoCompressor: React.FC = () => {
+// 新增 SearchParamsWrapper 組件
+const SearchParamsWrapper: React.FC<{ children: (componentId: string | null) => React.ReactNode }> = ({ children }) => {
+  const searchParams = useSearchParams();
+  const componentId = searchParams.get('componentId');
+  return <>{children(componentId)}</>;
+};
+
+const VideoCompressorContent: React.FC<{ componentId: string | null }> = ({ componentId }) => {
   const t = useTranslations('VideoCompressor');
   const [inputVideo, setInputVideo] = useState<File | null>(null);
   const [outputVideo, setOutputVideo] = useState<string | null>(null);
@@ -19,9 +26,9 @@ const VideoCompressor: React.FC = () => {
     originalSize: number;
     compressedSize: number;
     compressionRatio: number;
+    compressionTime: number;
   } | null>(null);
   const [logMessages, setLogMessages] = useState<string[]>([]);
-  const [showLogs, setShowLogs] = useState<boolean>(false);
   const [loaded, setLoaded] = useState(false);
   const ffmpegRef = useRef<FFmpeg>();
 
@@ -80,6 +87,7 @@ const VideoCompressor: React.FC = () => {
     const outputFileName = 'output.mp4';
 
     try {
+      const startTime = Date.now();
       await ffmpeg.writeFile(inputFileName, await fetchFile(inputVideo));
 
       await ffmpeg.exec([
@@ -87,14 +95,21 @@ const VideoCompressor: React.FC = () => {
         '-c:v', 'libx264',
         '-tag:v', 'avc1',
         '-movflags', 'faststart',
-        '-crf', '30',
-        '-preset', 'superfast',
-        '-threads', '4',
+        '-crf', '26',
+        '-preset', 'ultrafast',
+        '-tune', 'zerolatency',
+        '-vf', 'scale=-2:720',
+        '-r', '15',
+        '-threads', '0',
+        '-x264opts', 'no-cabac:ref=0:weightp=0:8x8dct=0',
         '-progress', '-',
         '-v', '',
         '-y',
         outputFileName
       ]);
+
+      const endTime = Date.now();
+      const compressionTime = (endTime - startTime) / 1000; // 秒
 
       const data = await ffmpeg.readFile(outputFileName);
       if (!(data instanceof Uint8Array)) {
@@ -116,81 +131,80 @@ const VideoCompressor: React.FC = () => {
       setCompressionStats({
         originalSize,
         compressedSize,
-        compressionRatio
+        compressionRatio,
+        compressionTime
       });
 
-      // Send compressed video data to parent window
       window.parent.postMessage({
         type: 'VIDEO_COMPRESSED',
+        componentId: componentId,
         file: new File([data], 'compressed-video.mp4', { type: 'video/mp4' }),
         filename: inputVideo.name,
         stats: {
           originalSize,
           compressedSize,
-          compressionRatio
+          compressionRatio,
+          compressionTime
         }
       }, '*');
     } catch (error) {
-      console.error('Error compressing video:', error);
-      setError('Failed to compress video. Please try again.');
+      const err = error as Error;
+      if (err.message === 'Compression cancelled by user.') {
+        setError('已取消壓縮');
+        setCompressing(false);
+        setInputVideo(null);
+        return;
+      } else {
+        console.error('Error compressing video:', error);
+        setError('Failed to compress video. Please try again.');
+      }
     } finally {
       setCompressing(false);
     }
   };
 
-  const handleFileChange = (file: File) => {
-    if (file) {
+  const handleFileChange = async (file: File) => {
+    if (!file) return;
+    if (file.type.startsWith('image/')) {
+      // 直接傳送圖片
+      window.parent.postMessage({
+        type: 'IMAGE_SELECTED',
+        componentId: componentId,
+        file: new File([await file.arrayBuffer()], file.name, { type: file.type }),
+        filename: file.name
+      }, '*');
+      setInputVideo(null);
+    } else if (file.type.startsWith('video/')) {
       setInputVideo(file);
+    } else {
+      setError('只支援 mp4 影片或常見圖片格式');
     }
   };
 
-  const handleDownload = () => {
-    if (outputVideo) {
-      const a = document.createElement('a');
-      a.href = outputVideo;
-      a.download = 'compressed_video.mp4';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+  useEffect(() => {
+    if (inputVideo && inputVideo.type.startsWith('video/')) {
+      compress();
     }
-  };
+  }, [inputVideo]);
 
-  const toggleLogs = () => {
-    setShowLogs(!showLogs);
+  const handleCancel = () => {
+    window.location.reload();
   };
 
   return (
-    <div className="mx-auto py-8 md:py-12 max-w-3xl min-w-[280px] sm:min-w-[480px] md:min-w-[640px] lg:min-w-[768px] px-4 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <Dropzone
+    <div>
+      <div>
+        {
+          !compressing && <Dropzone
           onChange={handleFileChange}
-          className="w-full h-32"
+          className="w-full"
           fileExtension="mp4"
         />
+        }
       </div>
       {error && <p className="text-red-500 mb-4">{error}</p>}
-      <button
-        onClick={compress}
-        disabled={!inputVideo || compressing}
-        className={`w-full py-3 px-4 rounded-md text-white font-semibold transition-colors duration-200 ${!inputVideo || compressing
-          ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
-          : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
-          }`}
-      >
-        {compressing ? (
-          <span className="flex items-center justify-center">
-            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            {t('compressing')}
-          </span>
-        ) : (
-          t('compressVideo')
-        )}
-      </button>
       {compressing && (
-        <div className="mt-6">
+        <div>
           <div className="relative pt-1">
             <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200 dark:bg-blue-700">
               <div style={{ width: `${progress}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 dark:bg-blue-400 transition-all duration-300"></div>
@@ -199,55 +213,25 @@ const VideoCompressor: React.FC = () => {
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">{t('compressingProgress', { progress })}</p>
         </div>
       )}
-      {compressionStats && (
-        <div className="mt-6 p-6 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md">
-          <h3 className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">{t('compressionResults')}</h3>
-          <div className="flex justify-between items-center mb-3">
-            <p className="text-lg font-semibold text-red-600 dark:text-red-400">{t('originalSize', { size: (compressionStats.originalSize / 1024 / 1024).toFixed(2) })}</p>
-            <p className="text-lg font-semibold text-green-600 dark:text-green-400">{t('compressedSize', { size: (compressionStats.compressedSize / 1024 / 1024).toFixed(2) })}</p>
-          </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-4">
-            <div className="bg-green-600 dark:bg-green-500 h-3 rounded-full transition-all duration-500" style={{ width: `${100 - (compressionStats.compressedSize / compressionStats.originalSize) * 100}%` }}></div>
-          </div>
-          <p className="text-xl font-bold text-center text-blue-600 dark:text-blue-400">
-            {t('compressionRatio', { power: (100 - (compressionStats.compressedSize / compressionStats.originalSize) * 100).toFixed(2) })}
-          </p>
-        </div>
-      )}
-      {outputVideo && (
-        <div className="mt-6">
-          <button
-            onClick={handleDownload}
-            className="w-full py-3 px-4 rounded-md text-white font-semibold bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors duration-200"
-          >
-            {t('downloadCompressedVideo')}
-          </button>
-          <h3 className="text-xl font-semibold my-4 text-gray-800 dark:text-gray-200">{t('compressedVideo')}</h3>
-          <video src={outputVideo} controls className="w-full rounded-lg shadow-lg mb-6">
-            {t('videoNotSupported')}
-          </video>
-        </div>
-      )}
-
-      {/* <div className="mt-6">
+      {compressing && (
         <button
-          onClick={toggleLogs}
-          className="w-full py-3 px-4 rounded-md text-white font-semibold bg-gray-600 hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 transition-colors duration-200"
+          onClick={handleCancel}
+          className="w-full py-3 px-4 rounded-md text-white font-semibold bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors duration-200"
         >
-          {showLogs ? t('hideLogs') : t('showLogs')}
+          取消壓縮
         </button>
-        {showLogs && (
-          <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold mb-3 text-gray-800 dark:text-gray-200">{t('logMessages')}</h3>
-            <div className="max-h-48 overflow-y-auto">
-              {logMessages.map((message, index) => (
-                <p key={index} className="text-sm text-gray-600 dark:text-gray-400 mb-1">{message}</p>
-              ))}
-            </div>
-          </div>
-        )}
-      </div> */}
+      )}
     </div>
+  );
+};
+
+const VideoCompressor: React.FC = () => {
+  return (
+    <Suspense fallback={<div>載入中...</div>}>
+      <SearchParamsWrapper>
+        {(componentId) => <VideoCompressorContent componentId={componentId} />}
+      </SearchParamsWrapper>
+    </Suspense>
   );
 };
 
